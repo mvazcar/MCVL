@@ -1,6 +1,8 @@
 # MCVL Data Processing Pipeline (Python/Polars)
 
-Python translation of the Stata data-processing code from **Arellano, Bonhomme, De Vera, Hospido & Wei (2022),** *Income Risk Inequality: Evidence from Spanish Administrative Records.* DOI: https://doi.org/10.3982/QE1887
+Python translation of the Stata data-processing code from **Arellano, Bonhomme, De Vera, Hospido & Wei (2022),** *Income Risk Inequality: Evidence from Spanish Administrative Records.* DOI: https://doi.org/10.3982/QE1887 
+
+Source Stata Codes: https://github.com/micoledevera/abdvhw-replication
 
 Two main updates:
 
