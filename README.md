@@ -1,62 +1,163 @@
-# Replication files for "Income Risk Inequality: Evidence from Spanish Administrative Records" by Arellano, Bonhomme, De Vera, Hospido, and Wei
+# MCVL Data Processing Pipeline (Python/Polars)
 
-This repository includes the codes to process the raw social security data and replicate the results in "Income Risk Inequality: Evidence from Spanish Administrative Records". In the first part of the paper, we compute various statistics on income dynamics common across all the countries in the [Global Repository of Income Dynamics (GRID)](https://mebdi.org/global-repository-income-dynamics). In the second part of the paper, we construct individual measures of income risk and document inequality in income risk. 
+Python translation of the Stata data-processing code from **Arellano, Bonhomme, De Vera, Hospido & Wei (2022),** *Income Risk Inequality: Evidence from Spanish Administrative Records.* DOI: https://doi.org/10.3982/QE1887
 
-## Muestra Continua de Vidas Laborales
+Two main updates:
 
-This paper uses the 2005-2018 versions of the Muestra Continua de Vidas Laborales con Datos Fiscales (MCVL with fiscal data). Due to data security reasons, we cannot share the data files. However, researchers can apply to access the data for scientific purposes. Details for this application process can be found using [this link (in Spanish)](https://www.seg-social.es/wps/portal/wss/internet/EstadisticasPresupuestosEstudios/Estadisticas/EST211).
+- Extended processing from 2005–2018 to 2005–2024, covering the latest MCVL release.
+- Replaced the original Stata pipeline with Python, using Polars and .parquet files. This results in substantial speed gains.
 
-## Overview of Replication Package
+There is also a minor-but-handy addition: the script normalize_filenames.py cleans up the raw files as received:
 
-There are three main parts to the replication package:
-- mcvl_data_processing
-  - do
-    - **00_Main.do**: Runs all steps 
-    - **01_Past_Info.do**: Combines raw files to get base panels of individuals and firms
-    - **02_MergeMCVL_05_12.do** and **02_MergeMCVL_13_latest.do**: Merge various components of MCVL
-    - **03_MonthlyVars.do**: Compute some monthly data
-    - **04_ReshapeData.do**: Reshape contribution data from wide to long
-    - **05_OtherVars.do**: Create additional variables pertaining to the census, job types and contract types
-    - **06_01_FixIDs.do**, **06_02_DatosFiscales_Unemp.do**, **06_03_Pensions.do**, and **06_04_Count_Days.do**: Generate variables (correct for firm ID changes, sum total income and unemployment benefits from fiscal data, identify individuals receiving a pension, count days worked)
-    - **07_01_Prep_Data_RemoveAllAfter2_NotClustering.do**, …, **07_05_Prep_Data_NoConstraint.do**: Generate the final data sets that are inputs to part1_statistics and part2_income_risk
-    - **mainjob_vars.do**: Identify the main job of an individual in the year and create variables pertaining to that main job
-    - **mcvl_reading_2005.do**, …, **mcvl_reading_2018.do**: Read in raw data and name variables, called by 00_Main.do
-  - raw 
-    - **bounds.dta**: Information needed to identify top-coded and bottom-coded data, collected from annual Boletín Oficial del Estado
-- part1_statistics
-  - **0_Initialize.do**: Define variable names, time span, and vectors used throughout the codes 
-  - **1_Gen_Base_Sample.do**: Rename the variables, select basic sample, create new variables, generate and save the dataset master_sample.dta used in the rest of the do files 
-  - **2_DescriptiveStats.do**: Generate descriptive statistics 
-  - **3_Inequality.do**: Generate statistics for different income measures (e.g., log income, residualized log income, etc.) 
-  - **4_Volatility.do**: Generate statistics for different income growth measures 
-  - **5_Mobility.do**: Generate statistics for income ranking
-  - **6_Insheeting_dataset.do**: Generate CSV files 
-  - **7_Paper_Figs.do**: Generate figures 
-  - **8_Part1_paper_table.do**: Generate summary statistics tables (F2-F12)
-- part2_income_risk
-  - main_analysis
-    - do
-	  - **1_Merge_gdp_unemp.do**: Merge the national and provincial level unemployment rate and gdp with the main dataset
-	  - **2_Disposable_income.do**: Generate disposable income
-	  - **3_part2_poisson_main.do**: Main file to compute (1) baseline CV measure and (2) CV measure with cluster
-	  - **4_part2_all_tab_figs.do**: Produce figures and tables in part 2
-	  - **5_bootstrap.do**: Bootstrap baseline model to compute standard errors of the second stage regression (absolute deviation)
-	  - CV: folder containing other complementary codes
-	- dta
-	  - **effective_tax_rate.csv**: Effective tax rates collected from annual editions of Manual Práctico Renta y Patrimonio
-	  - **National.dta** and **Province.dta**: National and provincial macroeconomic variables collected from Instituto Nacional de Estadística (INE)
-  - robustness_checks
-    - neural_net
-	  - **01_neuralnet_poisson_modelselect_quantiles_noclust_catcherror.R** and **02_neuralnet_poisson_modelselect_quantiles_noclust_catcherror_absdev.R**: Estimate multiple models for grid search to select hyperparameters of neural net
-	  - **03_estimation_fit_NN_modelselect_average.do** and **04_estimation_fit_NN_modelselect_average_absdev.do**: Assess in-sample and out-of-sample performance of different models estimated above
-	  - **05_neuralnet_male_poisson_average_incl2018.R**: Estimate neural net model with chosen hyperparameters
-	- quantile_measure
-	  - **TS_quantile2018.do**: Estimate quantile measures of income risk
-	- robust_measure
-	  - **robust_adj_lin_TS_male_incl2018_full.R**: Estimate robust measures of income risk
-	- unobserved_heterogeneity
-	  - **cluster_inc_poisson_kchosen_until2018.R** and **cluster_inc_poisson_kchosen_until2018_absdev.R**: Obtain initial cluster estimates before updating using the full model (chosen number of clusters)
-	  - **unobs_het_functions.R**: Support functions for estimating clusters 
-  - subjective_expectations
-    - **GID_sigma.do**: Compute household-level income risk and plot figures
-	- **myplots.do**: Additional functions for plotting
+- Fixes double-compressed archives.
+- Corrects typos in filenames.
+- Accounts for a naming change introduced in the 2004 files.
+- Renames everything to a standard convention common to all years.
+
+## What is the MCVL?
+
+The **Muestra Continua de Vidas Laborales** (Continuous Sample of Working Lives) is a 4% random sample of Spanish Social Security records, published annually by the Ministerio de Inclusion, Seguridad Social y Migraciones. It links employment histories (AFILIAD), contribution bases (COTIZA), employer-reported tax withholdings (FISCAL), pension records (PRESTAC), demographics (PERSONAL), and household composition (CONVIVIR) at the individual level.
+
+Researchers can apply for access at: https://www.seg-social.es/wps/portal/wss/internet/EstadisticasPresupuestosEstudios/Estadisticas/EST211
+
+## Repository structure
+
+```
+MCVL/
+  config.py               # CPI, education maps, province-to-comunidad, year ranges
+  readers.py              # Raw file readers with era-specific field positions
+  step01_panels.py        # Build individual + firm panels from PERSONAL/CONVIVIR/AFILIAD
+  step02_merge.py         # Merge COTIZA contributions with AFILIAD episodes per cohort
+  step03_days.py          # Compute monthly days worked (days1..days12)
+  step04_reshape.py       # Annual aggregation: person-firm-year -> person-year
+  step05_other_vars.py    # Add demographics, family composition, contract classification
+  step06_fiscal.py        # Read FISCAL + PRESTAC, build fiscal income + pensions
+  step07_final.py         # Final assembly: merge fiscal, CPI deflation, geography
+  pipeline.py             # Orchestrator with memory-aware resume logic
+  run.py                  # CLI entry point (--resume N, --years FIRST LAST)
+  normalize_filenames.py  # Unzip + rename raw files to standard convention
+  VARIABLES.md            # Complete variable documentation (70 columns)
+  output/                 # Final panel: mcvl_annual_panel_full.parquet
+  temp/                   # Intermediate parquets (~13 GB) for step-by-step runs
+  raw_zipped/             # Original zip files from DGOSS (1145{YY}{S|T}.zip, ~26 GB)
+  raw/                    # Unzipped + normalized TXT files, one folder per year
+    2004/ ... 2024/       #   MCVL{YEAR}{TYPE}{N}_CDF.TXT
+```
+
+## Quick start
+
+### 1. Obtain the data
+
+Place the original MCVL zip files in `raw_zipped/`. Files are named `1145{YY}S.zip` (2004-2005) or `1145{YY}T.zip` (2006-2024).
+
+### 2. Unzip and normalize filenames
+
+The original zips produce wildly inconsistent filenames across years (mainframe-style names, `.trs` extensions, typos, nested zips, etc.). The normalization script handles all 12 year-specific quirks:
+
+```bash
+python normalize_filenames.py              # dry run -- shows what would happen
+python normalize_filenames.py --execute    # unzip + rename to MCVL{YEAR}{TYPE}{N}_CDF.TXT
+```
+
+### 3. Run the pipeline
+
+```bash
+# Full run (2005-2024)
+python run.py
+
+# Resume from a specific step (uses saved parquets in temp/)
+python run.py --resume 4
+
+# Custom year range
+python run.py --years 2010 2020
+```
+
+**Memory note**: The full 2005-2024 run requires ~50 GB RAM per step. On a 128 GB machine, steps may need to run separately. The pipeline saves intermediate parquets to `temp/` after each step, and `--resume N` skips completed steps.
+
+### 4. Output
+
+Final panel: `output/mcvl_annual_panel_full.parquet`
+
+| Dimension | Value |
+|-----------|-------|
+| Rows | 53,965,964 person-year |
+| Persons | 2,882,981 unique |
+| Years | 1960-2024 |
+| Columns | 70 |
+| Size | 1.5 GB |
+
+See [`VARIABLES.md`](VARIABLES.md) for complete variable documentation.
+
+## Dependencies
+
+- Python 3.13+
+- [Polars](https://pola.rs/) >= 1.0
+
+```bash
+pip install polars
+```
+
+## Raw file naming quirks (why normalize_filenames.py exists)
+
+| Year | Original naming | Problem |
+|------|----------------|---------|
+| 2004 | `EST.LABT2004.AFILANON.FICHERO1.TXT` | Mainframe-style; some filenames corrupted (doubled) |
+| 2005 | `MCVL2005BAFILIAD1.TXT` | Extra `B` prefix, no `_CDF` suffix |
+| 2006-08 | `AFILANON1.trs` | No year in name, `.trs` extension, different type names |
+| 2009 | `MCVL2009COTIZA1.zip` | Inner zips inside the main zip; COTIZA files missing `_CDF` |
+| 2010 | `MCVL2010AFLIAID1_CDF.TXT` | Typo: `AFLIAID` instead of `AFILIAD`; mixed case extensions |
+| 2011 | `MCVL2011.F2013.AFILIA1_CDF.txt` | `.F2013.` infix; `AFILIA` instead of `AFILIAD` |
+| 2013 | `MCVL2012FISCAL_CDF.TXT` in 2013 folder | Stale files from wrong year |
+| 2015 | `MCVL2015COTIZA11_CDFF.TXT` | Double-F typo in suffix |
+| 2016 | `MCVL2016PERSONAL_SDF.TXT` | `SDF` instead of `CDF` |
+| 2017 | `MCVL2017/MCVL2017/*.TXT` | Nested subdirectory inside zip |
+| 2020-21 | `MCVL2020PERSONAL.TXT` | Missing `_CDF` suffix |
+
+## Performance (reference machine)
+
+| Component | Spec |
+|-----------|------|
+| CPU | AMD Ryzen 9 9900X 12-Core (24 threads) |
+| RAM | 128 GB DDR5 |
+| Storage | Samsung 990 PRO 2TB NVMe SSD |
+| OS | Windows 11 Pro |
+| Python | 3.13 |
+| Polars | 1.38.1 |
+
+| Pipeline step | Time | Peak RAM | Output |
+|---------------|------|----------|--------|
+| Step 01a: individuals panel | ~8 min | ~45 GB | 116M rows |
+| Step 01b: firms panel | ~5 min | ~30 GB | 50M rows |
+| Step 02: merge COTIZA + AFILIAD | ~15 min | ~50 GB | 99M rows |
+| Step 03: compute monthly days | ~5 min | ~45 GB | 99M rows |
+| Step 04: annual aggregation | ~8 min | ~50 GB | 54M rows |
+| Step 05: add demographics | ~3 min | ~25 GB | 54M rows |
+| Step 06: fiscal + pensions | ~5 min | ~15 GB | various |
+| Step 07: final assembly | ~3 min | ~20 GB | 54M rows |
+| **Total** | **~50-60 min** | **~50 GB peak** | **1.5 GB parquet** |
+
+Steps were run as separate Python invocations to stay within 128 GB RAM. Running all steps in one process may require more memory due to Python/Polars not fully releasing large allocations.
+
+## Correspondence: Stata -> Python
+
+| Stata file | Python file | Description |
+|------------|-------------|-------------|
+| `01_Past_Info.do` | `step01_panels.py` | Build individual + firm panels |
+| `02_MergeMCVL_*.do` | `step02_merge.py` | Merge COTIZA with AFILIAD episodes |
+| `03_MonthlyVars.do` | `step03_days.py` | Monthly days worked |
+| `04_ReshapeData.do` | `step04_reshape.py` | Wide-to-long + annual aggregation |
+| `05_OtherVars.do` | `step05_other_vars.py` | Demographics, family, contracts |
+| `06_*.do` (FixIDs, Fiscales, Pensions) | `step06_fiscal.py` | Fiscal income, pensions, firm ID fixes |
+| `07_*_Prep_Data_*.do` | `step07_final.py` | Final assembly + CPI deflation |
+| `mcvl_reading_*.do` (14 files) | `readers.py` | Raw file readers (single file, all eras) |
+| `00_Main.do` | `pipeline.py` + `run.py` | Orchestration + CLI |
+
+Key differences from the original Stata code:
+- **Years**: Extended from 2005-2018 to 2005-2024
+- **Days calculation**: Simplified (max per person-month vs. pairwise overlap detection)
+- **No sample restrictions**: All individuals kept; filtering deferred to analysis
+- **Memory management**: Explicit cleanup + step-by-step resume for large datasets
+
+## Built with Claude Code
+
+This Python translation was developed using [Claude Code](https://docs.anthropic.com/en/docs/claude-code), Anthropic's AI coding agent. Claude Code translated each Stata .do file into Python/Polars, extended the coverage from 2005–2018 to 2005–2024, and debugged memory issues for the full 21-year run. It also documented all raw file format variations across two decades of MCVL extracts and wrote the accompanying documentation.

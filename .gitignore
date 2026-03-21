@@ -1,0 +1,36 @@
+# Data files (too large for git)
+*.parquet
+*.dta
+*.csv
+
+# Raw MCVL data (user must supply)
+raw/*/*.TXT
+raw/*/*.txt
+raw/*/*.trs
+raw/*/*.zip
+raw_zipped/*.zip
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Output images (can be regenerated)
+*.png
+
+# Logs
+*.log
+
+# Claude Code
+.claude/
